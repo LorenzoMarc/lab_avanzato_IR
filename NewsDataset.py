@@ -6,8 +6,8 @@ import random
 
 class NewsDataset(Dataset):
 
-    def __init__(self, data_input, tokenizer,SPECIAL_TOKENS, randomize=True):
-
+    def __init__(self, data_input, tokenizer, MAX_LENGTH, randomize=True):
+        self.length=MAX_LENGTH,
         statement, keywords = [], []
         for k, v in data_input.items():
             statement.append(v[0])
@@ -22,6 +22,13 @@ class NewsDataset(Dataset):
         return len(self.statement)
 
     def __getitem__(self, i):
+
+        SPECIAL_TOKENS = {"bos_token": "<|BOS|>",
+                          "eos_token": "<|EOS|>",
+                          "unk_token": "<|UNK|>",
+                          "pad_token": "<|PAD|>",
+                          "sep_token": "<|SEP|>"}
+
         keywords = self.keywords[i].copy()
         # print("KEYWORDS #######" + str(type(keywords)))
         N = len(keywords)
@@ -42,9 +49,9 @@ class NewsDataset(Dataset):
         input = SPECIAL_TOKENS['bos_token'] + keywords_string + SPECIAL_TOKENS['sep_token'] + self.statement[i] + \
                 SPECIAL_TOKENS['eos_token']
 
-        encodings_dict = tokenizer(input,
+        encodings_dict = self.tokenizer(input,
                                    truncation=True,
-                                   max_length=MAXLEN,
+                                   max_length=self.length,
                                    padding="max_length")
 
         input_ids = encodings_dict['input_ids']

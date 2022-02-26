@@ -14,7 +14,7 @@ def get_tokenier(special_tokens, model):
         print("Special tokens added")
     return tokenizer
 
-def get_model(tokenizer, model, special_tokens=None, load_model_path=None):
+def get_model(tokenizer, model, device, special_tokens=None, load_model_path=None):
 
     #GPT2LMHeadModel
     if special_tokens:
@@ -39,5 +39,5 @@ def get_model(tokenizer, model, special_tokens=None, load_model_path=None):
     if load_model_path:
         model.load_state_dict(torch.load(load_model_path))
 
-    model.cuda()
+    model.to(device)
     return model

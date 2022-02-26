@@ -25,7 +25,7 @@ def seed_everything(seed):
 
 def read_keywords():
     keywords = dict()
-    with open("..\data\keywords_lab_300"
+    with open(".\data\keywords_lab_300"
               ".csv", newline='') as f:
         reader = csv.reader(f, delimiter=',')
         for row in reader:

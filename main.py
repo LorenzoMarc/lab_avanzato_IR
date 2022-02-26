@@ -25,6 +25,7 @@ from torch.utils.data import Dataset, random_split, DataLoader, \
     RandomSampler, SequentialSampler
 
 # from IPython.display import clear_output
+import model_gpt
 import utils
 import NewsDataset as ds
 import model_gpt as md
@@ -61,15 +62,16 @@ def run(args):
 
     utils.seed_everything(SEED)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(torch.__version__)
     print(device)
 
     if TRAIN:
         data = utils.data_preprocessing(INPUT_DIR)
         tokenizer = md.get_tokenier(SPECIAL_TOKENS, MODEL)
-        model = md.get_model(tokenizer,MODEL,
+        model = md.get_model(tokenizer,MODEL, device,
                           special_tokens=SPECIAL_TOKENS,
-                          load_model_path=LOAD_TRAINED
-                          )
+                          load_model_path=LOAD_TRAINED)
+
         # - Freeze selective layers:
         # - Freeze all layers except last n:
         for parameter in model.parameters():
@@ -89,8 +91,8 @@ def run(args):
 
         train_data, val_data = ds.split_data(data, TRAIN_SIZE)
 
-        train_dataset = ds.NewsDataset(train_data, tokenizer,SPECIAL_TOKENS)
-        val_dataset = ds.NewsDataset(val_data, tokenizer,SPECIAL_TOKENS, randomize=False)
+        train_dataset = ds.NewsDataset(train_data, tokenizer, SPECIAL_TOKENS)
+        val_dataset = ds.NewsDataset(val_data, tokenizer, SPECIAL_TOKENS, randomize=False)
 
         f'There are {len(train_dataset) :,} samples for training, and {len(val_dataset) :,} samples for validation testing'
         # % % time
@@ -102,8 +104,8 @@ def run(args):
             per_device_eval_batch_size=TRAIN_BATCHSIZE,
             gradient_accumulation_steps=BATCH_UPDATE,
             evaluation_strategy="epoch",
-            fp16=True,
-            fp16_opt_level=APEX_OPT_LEVEL,
+            # fp16=True,
+            # fp16_opt_level=APEX_OPT_LEVEL,
             warmup_steps=WARMUP_STEPS,
             learning_rate=LR,
             adam_epsilon=EPS,
@@ -126,16 +128,15 @@ def run(args):
         trainer.save_model()
 
     else:
-
+        tokenizer = md  .get_tokenier(SPECIAL_TOKENS, MODEL)
         keywords = ['russia', 'italy', 'berlusconi', 'trump', 'gas', 'sanctions']
         kw = ','.join(keywords)
 
         prompt = SPECIAL_TOKENS['bos_token'] + kw + SPECIAL_TOKENS['sep_token']
 
         generated = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0)
-        device = torch.device("cuda")
         generated = generated.to(device)
-        model = md.get_model(tokenizer,MODEL,
+        model = md.get_model(tokenizer, MODEL, device,
                              special_tokens=SPECIAL_TOKENS,
                              load_model_path=LOAD_TRAINED
                              )
@@ -146,29 +147,29 @@ def run(args):
                                         do_sample=True,
                                         min_length=50,
                                         max_length=MAXLEN,
-                                        top_k=30,
+                                        top_k=20,
                                         top_p=0.7,
                                         temperature=0.9,
                                         repetition_penalty=2.0,
-                                        num_return_sequences=10
+                                        num_return_sequences=2
                                         )
 
         for i, sample_output in enumerate(sample_outputs):
-            text = tokenizer.decode(sample_output, skip_special_tokens=True)
+            text = tokenizer.decode(sample_output, skip_special_tokens=False)
             a = len(','.join(keywords))
             print("{}: {}\n\n".format(i + 1, text[a:]))
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-k', '--keywords', type=str, required=False)
     parser.add_argument('--data_path', type=str, required=True)
     parser.add_argument('--debug', type=bool, default=False)
-    parser.add_argument('--train', type=bool, required=True, default=True)
+    parser.add_argument('--train', type=bool, required=False, default=True)
+    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--apex', type=bool, default=False)
+    parser.add_argument('-k', '--keywords', type=str, required=False)
     parser.add_argument('-samples', '--num_samples', type=int, default=1)
     parser.add_argument('-wu', '--warmup_steps', type=float, default=1e2)
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('-nfrz_lyrs', '--unfreeeze_layers', type=int, default=6, choices=[0, 2, 4, 6, 8])
     parser.add_argument('-lr', '--learning_rate', type=float, default=5e-4)
     parser.add_argument('-eps', '--eps', type=float, default=1e-8)
