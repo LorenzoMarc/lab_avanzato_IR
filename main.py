@@ -89,8 +89,8 @@ def run(args):
 
         train_data, val_data = ds.split_data(data, TRAIN_SIZE)
 
-        train_dataset = ds.NewsDataset(train_data, tokenizer)
-        val_dataset = ds.NewsDataset(val_data, tokenizer, randomize=False)
+        train_dataset = ds.NewsDataset(train_data, tokenizer,SPECIAL_TOKENS)
+        val_dataset = ds.NewsDataset(val_data, tokenizer,SPECIAL_TOKENS, randomize=False)
 
         f'There are {len(train_dataset) :,} samples for training, and {len(val_dataset) :,} samples for validation testing'
         # % % time

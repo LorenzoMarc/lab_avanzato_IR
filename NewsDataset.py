@@ -6,7 +6,7 @@ import random
 
 class NewsDataset(Dataset):
 
-    def __init__(self, data_input, tokenizer, randomize=True):
+    def __init__(self, data_input, tokenizer,SPECIAL_TOKENS, randomize=True):
 
         statement, keywords = [], []
         for k, v in data_input.items():
