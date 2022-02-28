@@ -6,13 +6,13 @@ import random
 
 class NewsDataset(Dataset):
 
-    def __init__(self, data_input, tokenizer, MAX_LENGTH, randomize=True):
-        self.length=MAX_LENGTH,
+    def __init__(self, data_input, tokenizer, LENGTH, randomize=True):
+
         statement, keywords = [], []
         for k, v in data_input.items():
             statement.append(v[0])
             keywords.append(v[1])
-
+        self.length = LENGTH
         self.randomize = randomize
         self.tokenizer = tokenizer  # the gpt2 tokenizer we instantiated
         self.statement = statement
@@ -22,13 +22,6 @@ class NewsDataset(Dataset):
         return len(self.statement)
 
     def __getitem__(self, i):
-
-        SPECIAL_TOKENS = {"bos_token": "<|BOS|>",
-                          "eos_token": "<|EOS|>",
-                          "unk_token": "<|UNK|>",
-                          "pad_token": "<|PAD|>",
-                          "sep_token": "<|SEP|>"}
-
         keywords = self.keywords[i].copy()
         # print("KEYWORDS #######" + str(type(keywords)))
         N = len(keywords)
@@ -43,15 +36,22 @@ class NewsDataset(Dataset):
         # random.shuffle(keywords)#self.join_keywords(keywords, self.randomize)
         # print('sono nell\'if RANDOM SHUFFLE' + str(type(keywords)))
         # print('sono nell\'else' + str(type(kw)))
+        
+        SPECIAL_TOKENS = {"bos_token": "<|BOS|>",
+                          "eos_token": "<|EOS|>",
+                          "unk_token": "<|UNK|>",
+                          "pad_token": "<|PAD|>",
+                          "sep_token": "<|SEP|>"}
 
         keywords_string = ','.join([str(item) for item in keywords])
 
         input = SPECIAL_TOKENS['bos_token'] + keywords_string + SPECIAL_TOKENS['sep_token'] + self.statement[i] + \
                 SPECIAL_TOKENS['eos_token']
 
+        maxlen = self.length
         encodings_dict = self.tokenizer(input,
                                    truncation=True,
-                                   max_length=self.length,
+                                   max_length=maxlen,
                                    padding="max_length")
 
         input_ids = encodings_dict['input_ids']
