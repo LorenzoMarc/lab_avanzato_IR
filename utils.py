@@ -25,7 +25,8 @@ def seed_everything(seed):
 
 def read_keywords():
     keywords = dict()
-    with open("..\data\keywords_lab_300.csv", newline='') as f:
+    key_file = os.path.join("data","keywords.csv")
+    with open(key_file, newline='', encoding="utf8") as f:
         reader = csv.reader(f, delimiter=',')
         for row in reader:
             keywords[int(row[0])] = row[1:]
@@ -39,11 +40,11 @@ def data_preprocessing(input_path):
     print(df.head(10))
 
     keywords = read_keywords()
+    df = df['statement']
     data = dict()
 
     t0 = time.time()
-    df = df[:300]
-    df = df['statement']
+
     for i, text in enumerate(df):
         # id, text
         id = i

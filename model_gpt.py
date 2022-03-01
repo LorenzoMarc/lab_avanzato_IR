@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import Dataset, random_split, DataLoader, \
     RandomSampler, SequentialSampler
 
-def get_tokenier(special_tokens, model):
+def get_tokenizer(special_tokens, model):
     tokenizer = AutoTokenizer.from_pretrained(model) #GPT2Tokenizer
 
     if special_tokens:

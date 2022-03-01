@@ -12,13 +12,10 @@ import datetime
 from itertools import compress
 import argparse
 
-# from collections import Counter, defaultdict
-# from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-# from sklearn.metrics.pairwise import cosine_similarity
-
 from transformers import AutoTokenizer, AutoConfig, AutoModelForPreTraining, \
     AdamW, get_linear_schedule_with_warmup, \
     TrainingArguments, BeamScorer, Trainer
+import wandb
 
 import torch
 from torch.utils.data import Dataset, random_split, DataLoader, \
@@ -35,6 +32,7 @@ def run(args):
     TRAIN = args.train
     LOAD_TRAINED = args.load_model
     INPUT_DIR = args.data_path
+    OUTPUT_DIR = args.output_dir
     USE_APEX = args.apex
     APEX_OPT_LEVEL = 'O1'
     MODEL = args.model  # {gpt2, gpt2-medium, gpt2-large, gpt2-xl}
@@ -62,14 +60,15 @@ def run(args):
     utils.seed_everything(SEED)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
+    tokenizer = md.get_tokenizer(SPECIAL_TOKENS, MODEL)
 
     if TRAIN:
+        wandb.login()
         data = utils.data_preprocessing(INPUT_DIR)
-        tokenizer = md.get_tokenier(SPECIAL_TOKENS, MODEL)
         model = md.get_model(tokenizer,MODEL, device,
-                          special_tokens=SPECIAL_TOKENS,
-                          load_model_path=LOAD_TRAINED
-                          )
+                             special_tokens=SPECIAL_TOKENS,
+                             load_model_path=LOAD_TRAINED
+                             )
         # - Freeze selective layers:
         # - Freeze all layers except last n:
         for parameter in model.parameters():
@@ -96,20 +95,21 @@ def run(args):
         # % % time
 
         training_args = TrainingArguments(
-            output_dir="./",
+            output_dir=OUTPUT_DIR,
             num_train_epochs=EPOCHS,
             per_device_train_batch_size=TRAIN_BATCHSIZE,
             per_device_eval_batch_size=TRAIN_BATCHSIZE,
             gradient_accumulation_steps=BATCH_UPDATE,
             evaluation_strategy="epoch",
-            # fp16=True,
-            # fp16_opt_level=APEX_OPT_LEVEL,
+            fp16=True,
+            fp16_opt_level=APEX_OPT_LEVEL,
             warmup_steps=WARMUP_STEPS,
             learning_rate=LR,
             adam_epsilon=EPS,
             weight_decay=0.01,
             save_total_limit=1,
             load_best_model_at_end=False,
+            report_to="wandb"
         )
 
         # ---------------------------------------------------#
@@ -126,14 +126,13 @@ def run(args):
         trainer.save_model()
 
     else:
-
-        keywords = ['russia', 'italy', 'berlusconi', 'trump', 'gas', 'sanctions']
+        keywords = args.keywords
+        print('###---GENERATING 10 samples on keywords: ', keywords )
         kw = ','.join(keywords)
 
         prompt = SPECIAL_TOKENS['bos_token'] + kw + SPECIAL_TOKENS['sep_token']
 
         generated = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0)
-        device = torch.device("cuda")
         generated = generated.to(device)
         model = md.get_model(tokenizer,MODEL, device,
                              special_tokens=SPECIAL_TOKENS,
@@ -160,10 +159,13 @@ def run(args):
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-k', '--keywords', type=str, required=False)
-    parser.add_argument('--data_path', type=str, required=True)
+    parser.add_argument('-k', '--keywords', type=str, required=False, 
+                        default=['russia', 'italy', 'berlusconi', 'trump', 'gas', 'sanctions'])
+    parser.add_argument('--data_path', type=str, required=False, default=os.path.join("data", "Politifact_20213112.csv"))
     parser.add_argument('--debug', type=bool, default=False)
-    parser.add_argument('--train', type=bool, required=False, default=True)
+    parser.add_argument('--output_dir', type=str, default="./trained_model")
+
+    parser.add_argument('--train', type=bool, required=False, default=False)
     parser.add_argument('--apex', type=bool, default=False)
     parser.add_argument('-samples', '--num_samples', type=int, default=1)
     parser.add_argument('-wu', '--warmup_steps', type=float, default=1e2)
