@@ -13,6 +13,7 @@ from itertools import compress
 import argparse
 import random
 import torch
+import math
 
 def seed_everything(seed):
     random.seed(seed)
@@ -34,6 +35,15 @@ def read_keywords():
     return keywords
 
 
+def mean_stmnt(input_path):
+    df = pd.read_csv(input_path)
+    df = df['statement']
+    all = len(df)
+    elements=0
+    for s in df:
+        elements += len(s)
+    mean = math.ceil(elements/all)
+    return mean
 def data_preprocessing(input_path):
     df = pd.read_csv(input_path)
     print(f"df size: {len(df) :,}")

@@ -42,7 +42,7 @@ def run(args):
                       "unk_token": "<|UNK|>",
                       "pad_token": "<|PAD|>",
                       "sep_token": "<|SEP|>"}
-    MAXLEN = args.max_length_token  # {768, 1024, 1280, 1600}
+    MAXLEN =utils.mean_stmnt(INPUT_DIR) # args.max_length_token  # {768, 1024, 1280, 1600}
     TRAIN_SIZE = args.train_size
     if USE_APEX:
         TRAIN_BATCHSIZE = 4
@@ -55,7 +55,6 @@ def run(args):
     EPS = args.eps
     WARMUP_STEPS = args.warmup_steps
     SEED = args.seed
-
 
     utils.seed_everything(SEED)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -101,8 +100,8 @@ def run(args):
             per_device_eval_batch_size=TRAIN_BATCHSIZE,
             gradient_accumulation_steps=BATCH_UPDATE,
             evaluation_strategy="epoch",
-            fp16=True,
-            fp16_opt_level=APEX_OPT_LEVEL,
+            # fp16=True,
+            # fp16_opt_level=APEX_OPT_LEVEL,
             warmup_steps=WARMUP_STEPS,
             learning_rate=LR,
             adam_epsilon=EPS,
@@ -126,45 +125,54 @@ def run(args):
         trainer.save_model()
 
     else:
-        keywords = args.keywords
-        print('###---GENERATING 10 samples on keywords: ', keywords )
-        kw = ','.join(keywords)
+        keywords_arr = []
+        with open('10_keywords.csv', 'r') as fd:
+            reader = csv.reader(fd)
+            for k in reader:
+                keywords_arr.append(k)
+            fd.close()
+        for keywords in keywords_arr:
 
-        prompt = SPECIAL_TOKENS['bos_token'] + kw + SPECIAL_TOKENS['sep_token']
+            print('###---GENERATING 10 samples on keywords: ', keywords)
+            kw = ','.join(keywords)
 
-        generated = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0)
-        generated = generated.to(device)
-        model = md.get_model(tokenizer,MODEL, device,
-                             special_tokens=SPECIAL_TOKENS,
-                             load_model_path=LOAD_TRAINED
-                             )
-        model.eval();
+            prompt = SPECIAL_TOKENS['bos_token'] + kw + SPECIAL_TOKENS['sep_token']
 
-        # Top-p (nucleus) text generation (10 samples):
-        sample_outputs = model.generate(generated,
-                                        do_sample=True,
-                                        min_length=50,
-                                        max_length=MAXLEN,
-                                        top_k=30,
-                                        top_p=0.7,
-                                        temperature=0.9,
-                                        repetition_penalty=2.0,
-                                        num_return_sequences=10
-                                        )
+            generated = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0)
+            generated = generated.to(device)
+            model = md.get_model(tokenizer, MODEL, device,
+                                 special_tokens=SPECIAL_TOKENS,
+                                 load_model_path=LOAD_TRAINED
+                                 )
+            model.eval();
 
-        for i, sample_output in enumerate(sample_outputs):
-            text = tokenizer.decode(sample_output, skip_special_tokens=True)
-            a = len(','.join(keywords))
-            print("{}: {}\n\n".format(i + 1, text[a:]))
+            # Top-p (nucleus) text generation (10 samples):
+            sample_outputs = model.generate(generated,
+                                            do_sample=True,
+                                            min_length=50,
+                                            max_length=MAXLEN,
+                                            top_k=30,
+                                            top_p=0.7,
+                                            temperature=0.9,
+                                            repetition_penalty=2.0,
+                                            num_return_sequences=10
+                                            )
+
+            for i, sample_output in enumerate(sample_outputs):
+                text = tokenizer.decode(sample_output, skip_special_tokens=True)
+
+                a = len(','.join(keywords))
+                print("{}: {}\n\n".format(i + 1, text[a:]))
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-k', '--keywords', type=str, required=False, 
+    parser.add_argument('-k', '--keywords', type=str, required=False,
                         default=['russia', 'italy', 'berlusconi', 'trump', 'gas', 'sanctions'])
-    parser.add_argument('--data_path', type=str, required=False, default=os.path.join("data", "Politifact_20213112.csv"))
+    parser.add_argument('--data_path', type=str, required=False,
+                        default=os.path.join('..',"data", "Politifact_20211230.csv"))
     parser.add_argument('--debug', type=bool, default=False)
     parser.add_argument('--output_dir', type=str, default="./trained_model")
-
     parser.add_argument('--train', type=bool, required=False, default=False)
     parser.add_argument('--apex', type=bool, default=False)
     parser.add_argument('-samples', '--num_samples', type=int, default=1)
